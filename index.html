@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Workout Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chosen Palette: Warm Neutrals (Beige, Slate, Soft Terracotta) -->
+    <!-- Application Structure Plan: The application is designed as a single-page dashboard with a primary navigation bar for the 5 workout days. This task-oriented structure allows users to instantly access the workout for any given day without scrolling through a long document. This approach turns a static plan into a dynamic, easy-to-use tool. A pie chart provides a high-level visual summary of the week's focus areas, while essential but non-critical information like "General Guidelines" is placed in a modal to keep the main interface clean and focused. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: 5-Day Schedule -> Goal: Organize/Navigate -> Viz/Presentation Method: JS-powered tabbed interface -> Interaction: Click buttons to switch views -> Justification: Provides direct, task-oriented access to daily workouts, which is the primary user goal -> Library/Method: Vanilla JS.
+        - Report Info: Daily Workout Focus (e.g., Full Body, Lower Body) -> Goal: Compare/Summarize -> Viz/Presentation Method: Chart.js Donut Chart -> Interaction: Visual reference of weekly effort distribution -> Justification: Offers a quick, high-level understanding of the training split and balance across the week -> Library/Method: Chart.js.
+        - Report Info: Daily Exercise Tables -> Goal: Inform -> Viz/Presentation Method: Dynamically generated HTML cards/lists from a JS data object -> Interaction: Read/Follow -> Justification: Clean, structured, and clear presentation of workout details for easy consumption during a session -> Library/Method: Vanilla JS, Tailwind CSS.
+        - Report Info: General Guidelines -> Goal: Inform (secondary) -> Viz/Presentation Method: Modal window -> Interaction: Click a button to show/hide -> Justification: Keeps the primary UI uncluttered by hiding supplementary information until it's explicitly requested by the user -> Library/Method: Vanilla JS, Tailwind CSS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            margin-left: auto;
+            margin-right: auto;
+            height: 280px;
+            max-height: 300px;
+            width: 100%;
+            max-width: 300px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 320px;
+                max-height: 350px;
+                max-width: 350px;
+            }
+        }
+        .nav-btn {
+            transition: all 0.3s ease;
+        }
+        .nav-btn.active {
+            background-color: #A45C40;
+            color: #F6F5F0;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="bg-[#F6F5F0] text-[#242121]">
+
+    <div id="app" class="container mx-auto p-4 md:p-8 max-w-5xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-[#2E4756]">Your Intense Workout Plan</h1>
+            <p class="text-lg text-[#5D5D5D] mt-2">A 5-day kettlebell and bodyweight program. Select a day to begin.</p>
+        </header>
+
+        <main>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                <div class="lg:col-span-1 bg-white/50 rounded-2xl p-6 shadow-md border border-gray-200/80">
+                    <h2 class="text-xl font-bold text-center mb-4 text-[#2E4756]">Weekly Focus Distribution</h2>
+                    <p class="text-center text-sm text-[#5D5D5D] mb-4">This chart provides a visual breakdown of your training focus for the week, helping you understand how your efforts are balanced across different fitness domains.</p>
+                    <div class="chart-container">
+                        <canvas id="focusChart"></canvas>
+                    </div>
+                </div>
+                <div class="lg:col-span-2 bg-white/50 rounded-2xl p-6 shadow-md border border-gray-200/80">
+                    <div class="flex justify-between items-center mb-6">
+                         <h2 class="text-xl font-bold text-[#2E4756]">Daily Schedule</h2>
+                         <button id="guidelines-btn" class="bg-[#2E4756] text-white py-2 px-4 rounded-lg hover:bg-[#A45C40] transition-colors duration-300">
+                            General Guidelines
+                        </button>
+                    </div>
+                   
+                    <div id="day-nav" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-6"></div>
+                    <div id="workout-details" class="min-h-[300px]"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="guidelines-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center p-4 z-50">
+        <div class="bg-[#F6F5F0] rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-[#2E4756]">General Workout Guidelines</h2>
+                <button id="close-modal-btn" class="text-2xl font-bold text-gray-500 hover:text-gray-800">&times;</button>
+            </div>
+            <div class="space-y-4 text-[#5D5D5D]">
+                <div>
+                    <h3 class="font-bold text-lg text-[#A45C40]">Warm-up (5 minutes before each session):</h3>
+                    <ul class="list-disc list-inside ml-4">
+                        <li>Light cardio (jogging in place, jumping jacks): 2 minutes</li>
+                        <li>Dynamic stretches: Arm circles, leg swings, torso twists, cat-cow stretch, goblet squat holds (bodyweight): 3 minutes</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-[#A45C40]">Cool-down (5 minutes after each session):</h3>
+                    <ul class="list-disc list-inside ml-4">
+                        <li>Static stretches: Hold each stretch for 20-30 seconds (e.g., hamstring stretch, triceps stretch, quad stretch, chest opener, hip flexor stretch).</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-[#A45C40]">Rest Periods:</h3>
+                    <p class="ml-4">Keep rest between sets/circuits short, aiming for 30-60 seconds to maintain intensity.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-[#A45C40]">Kettlebell Selection:</h3>
+                    <p class="ml-4">Use the 20kg kettlebell for primary strength movements (e.g., swings, heavier squats) and the 12kg for more controlled or higher-rep exercises (e.g., presses, lunges if 20kg is too much, Turkish Get-Ups). Adjust as needed based on your strength and form.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-[#A45C40]">Focus on Form:</h3>
+                    <p class="ml-4">Always prioritize proper form over the number of reps or weight. Watch videos of exercises if you're unsure.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const workoutData = [
+                {
+                    day: "Day 1",
+                    title: "Full Body Power & Strength",
+                    focus: "Full Body",
+                    equipment: "20kg KB, 12kg KB, Bodyweight",
+                    content: [
+                        { type: 'circuit', name: 'Circuit 1 (Repeat 3-4 times)', exercises: [
+                            { name: 'Kettlebell Swings (20kg)', reps: '12-15 reps', note: 'Explosive hip drive, straight back.' },
+                            { name: 'Push-ups', reps: 'AMRAP', note: 'Chest to the ground, straight body. Modify on knees if needed.' },
+                            { name: 'Goblet Squats (20kg)', reps: '10-12 reps', note: 'Keep chest up, elbows inside knees at the bottom.' }
+                        ]},
+                        { type: 'circuit', name: 'Circuit 2 (Repeat 3-4 times)', exercises: [
+                            { name: 'Single-Arm Kettlebell Rows (20kg)', reps: '8-10 reps per arm', note: 'Support with free hand, pull elbow towards ceiling.' },
+                            { name: 'Burpees (Full)', reps: '8-10 reps', note: 'Chest to floor, explosive jump at the top.' },
+                            { name: 'Kettlebell Lunges (12kg or 20kg)', reps: '8-10 reps per leg', note: 'Forward or reverse lunges, focus on balance.' }
+                        ]},
+                        { type: 'finisher', name: 'Core Finisher (Repeat 2-3 times)', exercises: [
+                            { name: 'Plank', reps: '45-60 seconds', note: 'Straight line from head to heels.' },
+                            { name: 'Mountain Climbers', reps: '30-45 seconds', note: 'Fast knees to chest, keep core tight.' }
+                        ]}
+                    ]
+                },
+                {
+                    day: "Day 2",
+                    title: "Lower Body & Core Dominance",
+                    focus: "Lower Body",
+                    equipment: "20kg KB, 12kg KB, Bodyweight",
+                    content: [
+                         { type: 'circuit', name: 'Circuit 1 (Repeat 3-4 times)', exercises: [
+                            { name: 'Kettlebell Goblet Squats (20kg)', reps: '10-12 reps', note: 'Deep squat, controlled descent.' },
+                            { name: 'Jump Squats (Bodyweight)', reps: '10-15 reps', note: 'Explode off the ground, land softly.' },
+                            { name: 'Hollow Body Hold (Bodyweight)', reps: '30-45 seconds', note: 'Lower back pressed to floor, shoulders/legs slightly off.' }
+                        ]},
+                        { type: 'circuit', name: 'Circuit 2 (Repeat 3-4 times)', exercises: [
+                            { name: 'Single-Arm Kettlebell Deadlifts (20kg)', reps: '8-10 reps per arm', note: 'Hinge at hips, keep back straight, feel stretch in hamstrings.' },
+                            { name: 'Reverse Lunges (Bodyweight)', reps: '10-12 reps per leg', note: 'Step back, knee hovers above ground, push through front heel.' },
+                            { name: 'Russian Twists (12kg or Bodyweight)', reps: '20-30 reps (total)', note: 'Lean back slightly, twist torso, touch KB to floor on each side.' }
+                        ]},
+                        { type: 'finisher', name: 'Core Finisher (Repeat 2-3 times)', exercises: [
+                            { name: 'Leg Raises', reps: '15-20 reps', note: 'Keep lower back on floor, control movement.' },
+                            { name: 'Plank to Push-up (Bodyweight)', reps: '8-10 reps', note: 'From plank, move to push-up position one arm at a time, then back.' }
+                        ]}
+                    ]
+                },
+                {
+                    day: "Day 3",
+                    title: "Upper Body Strength & Conditioning",
+                    focus: "Upper Body",
+                    equipment: "20kg KB, 12kg KB, Bodyweight, Pull-up bar (optional)",
+                    content: [
+                        { type: 'circuit', name: 'Circuit 1 (Repeat 3-4 times)', exercises: [
+                            { name: 'Single-Arm Kettlebell Press (12kg or 20kg)', reps: '6-8 reps per arm', note: 'Press overhead with control, avoid leaning.' },
+                            { name: 'Pull-ups (Bodyweight)', reps: 'AMRAP', note: 'Use assisted if needed, or Inverted Rows if no bar.' },
+                            { name: 'Pike Push-ups (Bodyweight)', reps: '10-12 reps', note: 'Hips high, head towards floor, target shoulders.' }
+                        ]},
+                        { type: 'circuit', name: 'Circuit 2 (Repeat 3-4 times)', exercises: [
+                            { name: 'Renegade Rows (2x12kg or 1x20kg)', reps: '8-10 reps per arm', note: 'Maintain plank, avoid hip rotation. Use two 12kg KBs for stability.' },
+                            { name: 'Dips (Bodyweight)', reps: 'AMRAP', note: 'Use a chair/bench. Keep elbows close to body.' },
+                            { name: 'High Knees (Bodyweight)', reps: '45-60 seconds', note: 'Sprint in place, knees high, fast arms.' }
+                        ]},
+                        { type: 'finisher', name: 'Core Finisher (Repeat 2-3 times)', exercises: [
+                            { name: 'Side Plank', reps: '30-45 seconds per side', note: 'Straight line, hips lifted.' },
+                            { name: 'Bicycle Crunches', reps: '20-30 reps (total)', note: 'Elbow to opposite knee, controlled movement.' }
+                        ]}
+                    ]
+                },
+                {
+                    day: "Day 4",
+                    title: "Full Body Metabolic Conditioning",
+                    focus: "Conditioning",
+                    equipment: "20kg KB, Bodyweight",
+                    content: [
+                        { type: 'amrap', name: 'AMRAP Circuit (18-20 minutes)', note: 'As Many Rounds As Possible. Perform in sequence with minimal rest.', exercises: [
+                            { name: 'Kettlebell Swings (20kg)', reps: '15 reps' },
+                            { name: 'Goblet Squats (20kg)', reps: '10 reps' },
+                            { name: 'Burpees (Full)', reps: '8 reps' },
+                            { name: 'Push-ups', reps: '10 reps' }
+                        ]},
+                        { type: 'tabata', name: 'Tabata Finisher (4 minutes: 20s work, 10s rest)', note: 'Choose one exercise and perform 8 rounds.', exercises: [
+                            { name: 'Tabata: Bodyweight Squats', note: 'Explosive up, controlled down.' },
+                            { name: 'Tabata: High Knees', note: 'Max effort, keep knees high.' }
+                        ]}
+                    ]
+                },
+                {
+                    day: "Day 5",
+                    title: "Active Recovery, Mobility & Skill",
+                    focus: "Recovery",
+                    equipment: "12kg KB, Bodyweight",
+                    content: [
+                        { type: 'skill', name: 'Skill & Stability Work (Repeat 2-3 times)', exercises: [
+                            { name: 'Turkish Get-Up (12kg)', reps: '3-5 reps per side', note: 'Focus on controlled movement and form. Take your time!' },
+                            { name: 'Windmills (12kg or Bodyweight)', reps: '6-8 reps per side', note: 'Keep eyes on the kettlebell, hinge at hips.' }
+                        ]},
+                        { type: 'mobility', name: 'Mobility Flow (Perform continuously)', exercises: [
+                            { name: 'Cat-Cow Stretch', reps: '10-12 reps', note: 'Arch and round spine, coordinated with breath.' },
+                            { name: 'Thoracic Rotations', reps: '8-10 reps per side', note: 'On all fours, hand behind head, rotate elbow up.' },
+                            { name: 'World\'s Greatest Stretch', reps: '3-4 reps per side', note: 'Comprehensive hip, hamstring, and thoracic spine stretch.' }
+                        ]},
+                        { type: 'carry', name: 'Carries (Repeat 2-3 times)', exercises: [
+                            { name: 'Farmer\'s Carry (2x12kg or 1x20kg)', reps: '40-60 meters or 45 seconds', note: 'Walk tall, shoulders back, engage core.' },
+                            { name: 'Rack Carry (12kg or 20kg)', reps: '40-60 meters or 45 seconds per arm', note: 'Kettlebell in "rack" position, walk tall.' }
+                        ]}
+                    ]
+                }
+            ];
+
+            const dayNavContainer = document.getElementById('day-nav');
+            const workoutDetailsContainer = document.getElementById('workout-details');
+            const guidelinesBtn = document.getElementById('guidelines-btn');
+            const modal = document.getElementById('guidelines-modal');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            let currentDayIndex = 0;
+
+            const renderWorkout = (dayIndex) => {
+                currentDayIndex = dayIndex;
+                const dayData = workoutData[dayIndex];
+                workoutDetailsContainer.innerHTML = '';
+                
+                const header = document.createElement('div');
+                header.className = 'mb-6';
+                header.innerHTML = `
+                    <h3 class="text-2xl md:text-3xl font-bold text-[#A45C40]">${dayData.title}</h3>
+                    <p class="text-md text-[#5D5D5D] mt-1"><span class="font-semibold">Equipment:</span> ${dayData.equipment}</p>
+                `;
+                workoutDetailsContainer.appendChild(header);
+
+                const contentWrapper = document.createElement('div');
+                contentWrapper.className = 'space-y-6';
+                
+                dayData.content.forEach(section => {
+                    const sectionEl = document.createElement('div');
+                    sectionEl.className = 'bg-white/60 p-4 rounded-lg border border-gray-200/80';
+                    let sectionNote = section.note ? `<p class="text-sm text-[#5D5D5D] italic mb-3">${section.note}</p>` : '';
+                    sectionEl.innerHTML = `<h4 class="font-bold text-lg text-[#2E4756] mb-2">${section.name}</h4>${sectionNote}`;
+                    
+                    const exerciseList = document.createElement('ul');
+                    exerciseList.className = 'space-y-3';
+
+                    section.exercises.forEach(ex => {
+                        const li = document.createElement('li');
+                        li.className = 'flex flex-col sm:flex-row justify-between';
+                        const repsHTML = ex.reps ? `<span class="font-semibold text-[#A45C40] text-right">${ex.reps}</span>` : '';
+                        li.innerHTML = `
+                            <div>
+                                <p class="font-semibold text-gray-800">${ex.name}</p>
+                                <p class="text-sm text-gray-600">${ex.note || ''}</p>
+                            </div>
+                            ${repsHTML}
+                        `;
+                        exerciseList.appendChild(li);
+                    });
+                    sectionEl.appendChild(exerciseList);
+                    contentWrapper.appendChild(sectionEl);
+                });
+
+                workoutDetailsContainer.appendChild(contentWrapper);
+                updateNavButtons();
+            };
+            
+            const updateNavButtons = () => {
+                const buttons = document.querySelectorAll('.nav-btn');
+                buttons.forEach((btn, index) => {
+                    if (index === currentDayIndex) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            };
+
+            workoutData.forEach((day, index) => {
+                const button = document.createElement('button');
+                button.textContent = day.day;
+                button.className = 'nav-btn w-full text-center py-2 px-1 rounded-lg bg-gray-200 hover:bg-[#c89e8d] text-[#2E4756] font-semibold';
+                button.addEventListener('click', () => renderWorkout(index));
+                dayNavContainer.appendChild(button);
+            });
+            
+            const initChart = () => {
+                const ctx = document.getElementById('focusChart').getContext('2d');
+                const focusCounts = workoutData.reduce((acc, day) => {
+                    acc[day.focus] = (acc[day.focus] || 0) + 1;
+                    return acc;
+                }, {});
+
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(focusCounts),
+                        datasets: [{
+                            data: Object.values(focusCounts),
+                            backgroundColor: ['#2E4756', '#A45C40', '#6D909F', '#C4A381', '#EAE0D1'],
+                            borderColor: '#F6F5F0',
+                            borderWidth: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: '#242121',
+                                    font: { size: 14 }
+                                }
+                            }
+                        },
+                        cutout: '60%'
+                    }
+                });
+            };
+
+            guidelinesBtn.addEventListener('click', () => modal.classList.remove('hidden'));
+            closeModalBtn.addEventListener('click', () => modal.classList.add('hidden'));
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                }
+            });
+
+            renderWorkout(0);
+            initChart();
+        });
+    </script>
+</body>
+</html>
