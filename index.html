@@ -7,12 +7,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Chosen Palette: Warm Neutrals (Beige, Slate, Soft Terracotta) -->
-    <!-- Application Structure Plan: The application is designed as a single-page dashboard with a primary navigation bar for the 5 workout days. This task-oriented structure allows users to instantly access the workout for any given day without scrolling through a long document. This approach turns a static plan into a dynamic, easy-to-use tool. A pie chart provides a high-level visual summary of the week's focus areas, while essential but non-critical information like "General Guidelines" is placed in a modal to keep the main interface clean and focused. -->
+    <!-- Application Structure Plan: The core dashboard layout remains. A new program selection area is introduced at the top, allowing users to toggle between different workout programs. Below the program selector, a dynamic description of the currently active program is displayed, providing immediate context. The daily navigation, workout details, and the weekly focus chart (now dynamically updated per program) all adapt to the selected program. The "General Guidelines" modal provides supplementary information, maintaining a clean main interface. This architecture prioritizes program-level exploration before drilling down into daily details. -->
     <!-- Visualization & Content Choices: 
-        - Report Info: 5-Day Schedule -> Goal: Organize/Navigate -> Viz/Presentation Method: JS-powered tabbed interface -> Interaction: Click buttons to switch views -> Justification: Provides direct, task-oriented access to daily workouts, which is the primary user goal -> Library/Method: Vanilla JS.
-        - Report Info: Daily Workout Focus (e.g., Full Body, Lower Body) -> Goal: Compare/Summarize -> Viz/Presentation Method: Chart.js Donut Chart -> Interaction: Visual reference of weekly effort distribution -> Justification: Offers a quick, high-level understanding of the training split and balance across the week -> Library/Method: Chart.js.
-        - Report Info: Daily Exercise Tables -> Goal: Inform -> Viz/Presentation Method: Dynamically generated HTML cards/lists from a JS data object -> Interaction: Read/Follow -> Justification: Clean, structured, and clear presentation of workout details for easy consumption during a session -> Library/Method: Vanilla JS, Tailwind CSS.
-        - Report Info: General Guidelines -> Goal: Inform (secondary) -> Viz/Presentation Method: Modal window -> Interaction: Click a button to show/hide -> Justification: Keeps the primary UI uncluttered by hiding supplementary information until it's explicitly requested by the user -> Library/Method: Vanilla JS, Tailwind CSS.
+        - Report Info: Multiple Workout Programs -> Goal: Organize/Navigate -> Viz/Presentation Method: Program Selection Buttons -> Interaction: Click to switch active program -> Justification: Allows users to easily explore different training methodologies -> Library/Method: Vanilla JS.
+        - Report Info: Program Descriptions -> Goal: Inform -> Viz/Presentation Method: Dynamic Text Block -> Interaction: Automatically updates with program selection -> Justification: Provides immediate context and goals for the selected program -> Library/Method: Vanilla JS.
+        - Report Info: 5-Day Schedule per Program -> Goal: Organize/Navigate -> Viz/Presentation Method: JS-powered tabbed interface (retained) -> Interaction: Click buttons to switch daily views -> Justification: Provides direct, task-oriented access to daily workouts, which is the primary user goal -> Library/Method: Vanilla JS.
+        - Report Info: Daily Workout Focus (e.g., Full Body, Lower Body) per Program -> Goal: Compare/Summarize -> Viz/Presentation Method: Chart.js Donut Chart (retained, but dynamic) -> Interaction: Visual reference of weekly effort distribution, updates with program -> Justification: Offers a quick, high-level understanding of the training split and balance across the week for the active program -> Library/Method: Chart.js.
+        - Report Info: Daily Exercise Tables -> Goal: Inform -> Viz/Presentation Method: Dynamically generated HTML cards/lists from a JS data object (retained) -> Interaction: Read/Follow -> Justification: Clean, structured, and clear presentation of workout details for easy consumption during a session -> Library/Method: Vanilla JS, Tailwind CSS.
+        - Report Info: General Guidelines -> Goal: Inform (secondary) -> Viz/Presentation Method: Modal window (retained) -> Interaction: Click a button to show/hide -> Justification: Keeps the primary UI uncluttered by hiding supplementary information until it's explicitly requested by the user -> Library/Method: Vanilla JS, Tailwind CSS.
     -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
@@ -35,13 +37,21 @@
                 max-width: 350px;
             }
         }
-        .nav-btn {
+        .nav-btn, .program-btn {
             transition: all 0.3s ease;
         }
-        .nav-btn.active {
+        .nav-btn.active, .program-btn.active {
             background-color: #A45C40;
             color: #F6F5F0;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        /* Custom tooltip for Chart.js - for wrapping long labels */
+        .chartjs-tooltip-key {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin-right: 5px;
+            border-radius: 50%;
         }
     </style>
 </head>
@@ -49,15 +59,21 @@
 
     <div id="app" class="container mx-auto p-4 md:p-8 max-w-5xl">
         <header class="text-center mb-8">
-            <h1 class="text-4xl md:text-5xl font-bold text-[#2E4756]">Your Intense Workout Plan</h1>
-            <p class="text-lg text-[#5D5D5D] mt-2">A 5-day kettlebell and bodyweight program. Select a day to begin.</p>
+            <h1 class="text-4xl md:text-5xl font-bold text-[#2E4756]">Your Interactive Workout Planner</h1>
+            <p class="text-lg text-[#5D5D5D] mt-2">Select a program and then a day to begin your workout.</p>
         </header>
 
         <main>
+            <div class="mb-8 bg-white/50 rounded-2xl p-6 shadow-md border border-gray-200/80">
+                <h2 class="text-xl font-bold text-center mb-4 text-[#2E4756]">Choose Your Program</h2>
+                <div id="program-nav" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4"></div>
+                <div id="program-description" class="text-center text-[#5D5D5D] mt-4 p-3 rounded-lg bg-gray-100/50 border border-gray-200/80"></div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 <div class="lg:col-span-1 bg-white/50 rounded-2xl p-6 shadow-md border border-gray-200/80">
                     <h2 class="text-xl font-bold text-center mb-4 text-[#2E4756]">Weekly Focus Distribution</h2>
-                    <p class="text-center text-sm text-[#5D5D5D] mb-4">This chart provides a visual breakdown of your training focus for the week, helping you understand how your efforts are balanced across different fitness domains.</p>
+                    <p class="text-center text-sm text-[#5D5D5D] mb-4">This chart provides a visual breakdown of the training focus for the currently selected program, helping you understand how your efforts are balanced across different fitness domains.</p>
                     <div class="chart-container">
                         <canvas id="focusChart"></canvas>
                     </div>
@@ -115,124 +131,312 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const workoutData = [
+            const workoutPrograms = [
                 {
-                    day: "Day 1",
-                    title: "Full Body Power & Strength",
-                    focus: "Full Body",
-                    equipment: "20kg KB, 12kg KB, Bodyweight",
-                    content: [
-                        { type: 'circuit', name: 'Circuit 1 (Repeat 3-4 times)', exercises: [
-                            { name: 'Kettlebell Swings (20kg)', reps: '12-15 reps', note: 'Explosive hip drive, straight back.' },
-                            { name: 'Push-ups', reps: 'AMRAP', note: 'Chest to the ground, straight body. Modify on knees if needed.' },
-                            { name: 'Goblet Squats (20kg)', reps: '10-12 reps', note: 'Keep chest up, elbows inside knees at the bottom.' }
-                        ]},
-                        { type: 'circuit', name: 'Circuit 2 (Repeat 3-4 times)', exercises: [
-                            { name: 'Single-Arm Kettlebell Rows (20kg)', reps: '8-10 reps per arm', note: 'Support with free hand, pull elbow towards ceiling.' },
-                            { name: 'Burpees (Full)', reps: '8-10 reps', note: 'Chest to floor, explosive jump at the top.' },
-                            { name: 'Kettlebell Lunges (12kg or 20kg)', reps: '8-10 reps per leg', note: 'Forward or reverse lunges, focus on balance.' }
-                        ]},
-                        { type: 'finisher', name: 'Core Finisher (Repeat 2-3 times)', exercises: [
-                            { name: 'Plank', reps: '45-60 seconds', note: 'Straight line from head to heels.' },
-                            { name: 'Mountain Climbers', reps: '30-45 seconds', note: 'Fast knees to chest, keep core tight.' }
-                        ]}
+                    name: "Intense Full Body",
+                    description: "This program is designed for maximal intensity, combining explosive kettlebell movements with challenging bodyweight exercises. It aims to build raw strength, power, and high-intensity conditioning, leaving you thoroughly worked and energized.",
+                    days: [
+                        {
+                            day: "Day 1",
+                            title: "Full Body Power & Strength",
+                            focus: "Full Body",
+                            equipment: "20kg KB, 12kg KB, Bodyweight",
+                            content: [
+                                { type: 'circuit', name: 'Circuit 1 (Repeat 3-4 times)', exercises: [
+                                    { name: 'Kettlebell Swings (20kg)', reps: '12-15 reps', note: 'Explosive hip drive, straight back.' },
+                                    { name: 'Push-ups', reps: 'AMRAP', note: 'Chest to the ground, straight body. Modify on knees if needed.' },
+                                    { name: 'Goblet Squats (20kg)', reps: '10-12 reps', note: 'Keep chest up, elbows inside knees at the bottom.' }
+                                ]},
+                                { type: 'circuit', name: 'Circuit 2 (Repeat 3-4 times)', exercises: [
+                                    { name: 'Single-Arm Kettlebell Rows (20kg)', reps: '8-10 reps per arm', note: 'Support with free hand, pull elbow towards ceiling.' },
+                                    { name: 'Burpees (Full)', reps: '8-10 reps', note: 'Chest to floor, explosive jump at the top.' },
+                                    { name: 'Kettlebell Lunges (12kg or 20kg)', reps: '8-10 reps per leg', note: 'Forward or reverse lunges, focus on balance.' }
+                                ]},
+                                { type: 'finisher', name: 'Core Finisher (Repeat 2-3 times)', exercises: [
+                                    { name: 'Plank', reps: '45-60 seconds', note: 'Straight line from head to heels.' },
+                                    { name: 'Mountain Climbers', reps: '30-45 seconds', note: 'Fast knees to chest, keep core tight.' }
+                                ]}
+                            ]
+                        },
+                        {
+                            day: "Day 2",
+                            title: "Lower Body & Core Dominance",
+                            focus: "Lower Body",
+                            equipment: "20kg KB, 12kg KB, Bodyweight",
+                            content: [
+                                { type: 'circuit', name: 'Circuit 1 (Repeat 3-4 times)', exercises: [
+                                    { name: 'Kettlebell Goblet Squats (20kg)', reps: '10-12 reps', note: 'Deep squat, controlled descent.' },
+                                    { name: 'Jump Squats (Bodyweight)', reps: '10-15 reps', note: 'Explode off the ground, land softly.' },
+                                    { name: 'Hollow Body Hold (Bodyweight)', reps: '30-45 seconds', note: 'Lower back pressed to floor, shoulders/legs slightly off.' }
+                                ]},
+                                { type: 'circuit', name: 'Circuit 2 (Repeat 3-4 times)', exercises: [
+                                    { name: 'Single-Arm Kettlebell Deadlifts (20kg)', reps: '8-10 reps per arm', note: 'Hinge at hips, keep back straight, feel stretch in hamstrings.' },
+                                    { name: 'Reverse Lunges (Bodyweight)', reps: '10-12 reps per leg', note: 'Step back, knee hovers above ground, push through front heel.' },
+                                    { name: 'Russian Twists (12kg or Bodyweight)', reps: '20-30 reps (total)', note: 'Lean back slightly, twist torso, touch KB to floor on each side.' }
+                                ]},
+                                { type: 'finisher', name: 'Core Finisher (Repeat 2-3 times)', exercises: [
+                                    { name: 'Leg Raises', reps: '15-20 reps', note: 'Keep lower back on floor, control movement.' },
+                                    { name: 'Plank to Push-up (Bodyweight)', reps: '8-10 reps', note: 'From plank, move to push-up position one arm at a time, then back.' }
+                                ]}
+                            ]
+                        },
+                        {
+                            day: "Day 3",
+                            title: "Upper Body Strength & Conditioning",
+                            focus: "Upper Body",
+                            equipment: "20kg KB, 12kg KB, Bodyweight, Pull-up bar (optional)",
+                            content: [
+                                { type: 'circuit', name: 'Circuit 1 (Repeat 3-4 times)', exercises: [
+                                    { name: 'Single-Arm Kettlebell Press (12kg or 20kg)', reps: '6-8 reps per arm', note: 'Press overhead with control, avoid leaning.' },
+                                    { name: 'Pull-ups (Bodyweight)', reps: 'AMRAP', note: 'Use assisted if needed, or Inverted Rows if no bar.' },
+                                    { name: 'Pike Push-ups (Bodyweight)', reps: '10-12 reps', note: 'Hips high, head towards floor, target shoulders.' }
+                                ]},
+                                { type: 'circuit', name: 'Circuit 2 (Repeat 3-4 times)', exercises: [
+                                    { name: 'Renegade Rows (2x12kg or 1x20kg)', reps: '8-10 reps per arm', note: 'Maintain plank, avoid hip rotation. Use two 12kg KBs for stability.' },
+                                    { name: 'Dips (Bodyweight)', reps: 'AMRAP', note: 'Use a chair/bench. Keep elbows close to body.' },
+                                    { name: 'High Knees (Bodyweight)', reps: '45-60 seconds', note: 'Sprint in place, knees high, fast arms.' }
+                                ]},
+                                { type: 'finisher', name: 'Core Finisher (Repeat 2-3 times)', exercises: [
+                                    { name: 'Side Plank', reps: '30-45 seconds per side', note: 'Straight line, hips lifted.' },
+                                    { name: 'Bicycle Crunches', reps: '20-30 reps (total)', note: 'Elbow to opposite knee, controlled movement.' }
+                                ]}
+                            ]
+                        },
+                        {
+                            day: "Day 4",
+                            title: "Full Body Metabolic Conditioning",
+                            focus: "Conditioning",
+                            equipment: "20kg KB, Bodyweight",
+                            content: [
+                                { type: 'amrap', name: 'AMRAP Circuit (18-20 minutes)', note: 'As Many Rounds As Possible. Perform in sequence with minimal rest. Track your rounds!', exercises: [
+                                    { name: 'Kettlebell Swings (20kg)', reps: '15 reps' },
+                                    { name: 'Goblet Squats (20kg)', reps: '10 reps' },
+                                    { name: 'Burpees (Full)', reps: '8 reps' },
+                                    { name: 'Push-ups', reps: '10 reps' }
+                                ]},
+                                { type: 'tabata', name: 'Tabata Finisher (4 minutes: 20s work, 10s rest)', note: 'Choose one exercise and perform 8 rounds.', exercises: [
+                                    { name: 'Tabata: Bodyweight Squats', note: 'Explosive up, controlled down.' },
+                                    { name: 'Tabata: High Knees', note: 'Max effort, keep knees high.' }
+                                ]}
+                            ]
+                        },
+                        {
+                            day: "Day 5",
+                            title: "Active Recovery, Mobility & Skill",
+                            focus: "Recovery",
+                            equipment: "12kg KB, Bodyweight",
+                            content: [
+                                { type: 'skill', name: 'Skill & Stability Work (Repeat 2-3 times)', exercises: [
+                                    { name: 'Turkish Get-Up (12kg)', reps: '3-5 reps per side', note: 'Focus on controlled movement and form. Take your time!' },
+                                    { name: 'Windmills (12kg or Bodyweight)', reps: '6-8 reps per side', note: 'Keep eyes on the kettlebell, hinge at hips.' }
+                                ]},
+                                { type: 'mobility', name: 'Mobility Flow (Perform continuously)', exercises: [
+                                    { name: 'Cat-Cow Stretch', reps: '10-12 reps', note: 'Arch and round spine, coordinated with breath.' },
+                                    { name: 'Thoracic Rotations', reps: '8-10 reps per side', note: 'On all fours, hand behind head, rotate elbow up.' },
+                                    { name: 'World\'s Greatest Stretch', reps: '3-4 reps per side', note: 'Comprehensive hip, hamstring, and thoracic spine stretch.' }
+                                ]},
+                                { type: 'carry', name: 'Carries (Repeat 2-3 times)', exercises: [
+                                    { name: 'Farmer\'s Carry (2x12kg or 1x20kg)', reps: '40-60 meters or 45 seconds', note: 'Walk tall, shoulders back, engage core.' },
+                                    { name: 'Rack Carry (12kg or 20kg)', reps: '40-60 meters or 45 seconds per arm', note: 'Kettlebell in "rack" position, walk tall.' }
+                                ]}
+                            ]
+                        }
                     ]
                 },
                 {
-                    day: "Day 2",
-                    title: "Lower Body & Core Dominance",
-                    focus: "Lower Body",
-                    equipment: "20kg KB, 12kg KB, Bodyweight",
-                    content: [
-                         { type: 'circuit', name: 'Circuit 1 (Repeat 3-4 times)', exercises: [
-                            { name: 'Kettlebell Goblet Squats (20kg)', reps: '10-12 reps', note: 'Deep squat, controlled descent.' },
-                            { name: 'Jump Squats (Bodyweight)', reps: '10-15 reps', note: 'Explode off the ground, land softly.' },
-                            { name: 'Hollow Body Hold (Bodyweight)', reps: '30-45 seconds', note: 'Lower back pressed to floor, shoulders/legs slightly off.' }
-                        ]},
-                        { type: 'circuit', name: 'Circuit 2 (Repeat 3-4 times)', exercises: [
-                            { name: 'Single-Arm Kettlebell Deadlifts (20kg)', reps: '8-10 reps per arm', note: 'Hinge at hips, keep back straight, feel stretch in hamstrings.' },
-                            { name: 'Reverse Lunges (Bodyweight)', reps: '10-12 reps per leg', note: 'Step back, knee hovers above ground, push through front heel.' },
-                            { name: 'Russian Twists (12kg or Bodyweight)', reps: '20-30 reps (total)', note: 'Lean back slightly, twist torso, touch KB to floor on each side.' }
-                        ]},
-                        { type: 'finisher', name: 'Core Finisher (Repeat 2-3 times)', exercises: [
-                            { name: 'Leg Raises', reps: '15-20 reps', note: 'Keep lower back on floor, control movement.' },
-                            { name: 'Plank to Push-up (Bodyweight)', reps: '8-10 reps', note: 'From plank, move to push-up position one arm at a time, then back.' }
-                        ]}
-                    ]
-                },
-                {
-                    day: "Day 3",
-                    title: "Upper Body Strength & Conditioning",
-                    focus: "Upper Body",
-                    equipment: "20kg KB, 12kg KB, Bodyweight, Pull-up bar (optional)",
-                    content: [
-                        { type: 'circuit', name: 'Circuit 1 (Repeat 3-4 times)', exercises: [
-                            { name: 'Single-Arm Kettlebell Press (12kg or 20kg)', reps: '6-8 reps per arm', note: 'Press overhead with control, avoid leaning.' },
-                            { name: 'Pull-ups (Bodyweight)', reps: 'AMRAP', note: 'Use assisted if needed, or Inverted Rows if no bar.' },
-                            { name: 'Pike Push-ups (Bodyweight)', reps: '10-12 reps', note: 'Hips high, head towards floor, target shoulders.' }
-                        ]},
-                        { type: 'circuit', name: 'Circuit 2 (Repeat 3-4 times)', exercises: [
-                            { name: 'Renegade Rows (2x12kg or 1x20kg)', reps: '8-10 reps per arm', note: 'Maintain plank, avoid hip rotation. Use two 12kg KBs for stability.' },
-                            { name: 'Dips (Bodyweight)', reps: 'AMRAP', note: 'Use a chair/bench. Keep elbows close to body.' },
-                            { name: 'High Knees (Bodyweight)', reps: '45-60 seconds', note: 'Sprint in place, knees high, fast arms.' }
-                        ]},
-                        { type: 'finisher', name: 'Core Finisher (Repeat 2-3 times)', exercises: [
-                            { name: 'Side Plank', reps: '30-45 seconds per side', note: 'Straight line, hips lifted.' },
-                            { name: 'Bicycle Crunches', reps: '20-30 reps (total)', note: 'Elbow to opposite knee, controlled movement.' }
-                        ]}
-                    ]
-                },
-                {
-                    day: "Day 4",
-                    title: "Full Body Metabolic Conditioning",
-                    focus: "Conditioning",
-                    equipment: "20kg KB, Bodyweight",
-                    content: [
-                        { type: 'amrap', name: 'AMRAP Circuit (18-20 minutes)', note: 'As Many Rounds As Possible. Perform in sequence with minimal rest.', exercises: [
-                            { name: 'Kettlebell Swings (20kg)', reps: '15 reps' },
-                            { name: 'Goblet Squats (20kg)', reps: '10 reps' },
-                            { name: 'Burpees (Full)', reps: '8 reps' },
-                            { name: 'Push-ups', reps: '10 reps' }
-                        ]},
-                        { type: 'tabata', name: 'Tabata Finisher (4 minutes: 20s work, 10s rest)', note: 'Choose one exercise and perform 8 rounds.', exercises: [
-                            { name: 'Tabata: Bodyweight Squats', note: 'Explosive up, controlled down.' },
-                            { name: 'Tabata: High Knees', note: 'Max effort, keep knees high.' }
-                        ]}
-                    ]
-                },
-                {
-                    day: "Day 5",
-                    title: "Active Recovery, Mobility & Skill",
-                    focus: "Recovery",
-                    equipment: "12kg KB, Bodyweight",
-                    content: [
-                        { type: 'skill', name: 'Skill & Stability Work (Repeat 2-3 times)', exercises: [
-                            { name: 'Turkish Get-Up (12kg)', reps: '3-5 reps per side', note: 'Focus on controlled movement and form. Take your time!' },
-                            { name: 'Windmills (12kg or Bodyweight)', reps: '6-8 reps per side', note: 'Keep eyes on the kettlebell, hinge at hips.' }
-                        ]},
-                        { type: 'mobility', name: 'Mobility Flow (Perform continuously)', exercises: [
-                            { name: 'Cat-Cow Stretch', reps: '10-12 reps', note: 'Arch and round spine, coordinated with breath.' },
-                            { name: 'Thoracic Rotations', reps: '8-10 reps per side', note: 'On all fours, hand behind head, rotate elbow up.' },
-                            { name: 'World\'s Greatest Stretch', reps: '3-4 reps per side', note: 'Comprehensive hip, hamstring, and thoracic spine stretch.' }
-                        ]},
-                        { type: 'carry', name: 'Carries (Repeat 2-3 times)', exercises: [
-                            { name: 'Farmer\'s Carry (2x12kg or 1x20kg)', reps: '40-60 meters or 45 seconds', note: 'Walk tall, shoulders back, engage core.' },
-                            { name: 'Rack Carry (12kg or 20kg)', reps: '40-60 meters or 45 seconds per arm', note: 'Kettlebell in "rack" position, walk tall.' }
-                        ]}
+                    name: "Flow & Fluidity",
+                    description: "This program emphasizes continuous movement, dynamic flexibility, and seamless transitions between exercises. It builds core stability, body control, and muscular endurance through kettlebell flows and animalistic bodyweight movements, leaving you feeling agile and strong.",
+                    days: [
+                        {
+                            day: "Day 1",
+                            title: "Integrated Flow Foundation",
+                            focus: "Flow & Control",
+                            equipment: "20kg KB, 12kg KB, Bodyweight",
+                            content: [
+                                { type: 'circuit', name: 'Circuit 1 (3-4 rounds)', exercises: [
+                                    { name: 'Kettlebell Windmills (12kg)', reps: '8-10 reps per side', note: 'Slow, controlled movement, eyes on KB.' },
+                                    { name: 'Inchworm to Push-up (BW)', reps: '8-10 reps', note: 'Focus on hamstring stretch and core.' },
+                                    { name: 'Goblet Squat (20kg)', reps: '10-12 reps', note: 'Deep, controlled descent.' }
+                                ]},
+                                { type: 'circuit', name: 'Circuit 2 (3-4 rounds)', exercises: [
+                                    { name: 'Figure 8 Kettlebell Swings (12kg)', reps: '10-12 reps per side', note: 'Continuous, fluid motion around legs.' },
+                                    { name: 'Bear Crawl (BW)', reps: '30-45 seconds', note: 'Keep hips low, opposite arm/leg movement.' },
+                                    { name: 'Single-Arm Kettlebell Row (20kg)', reps: '8-10 reps per arm', note: 'Control the eccentric phase.' }
+                                ]},
+                                { type: 'finisher', name: 'Flow Finisher (2-3 rounds)', exercises: [
+                                    { name: 'Dynamic Plank (Forearm to High Plank)', reps: '10-12 reps', note: 'Smooth transition, strong core.' },
+                                    { name: 'Leg Swings (Fwd/Back & Side/Side)', reps: '15 per leg each direction', note: 'Controlled, increasing range of motion.' }
+                                ]}
+                            ]
+                        },
+                        {
+                            day: "Day 2",
+                            title: "Unilateral Strength & Mobility",
+                            focus: "Unilateral & Mobility",
+                            equipment: "20kg KB, 12kg KB, Bodyweight",
+                            content: [
+                                { type: 'circuit', name: 'Circuit 1 (3-4 rounds)', exercises: [
+                                    { name: 'Turkish Get-Up (12kg)', reps: '3-4 reps per side', note: 'Focus on perfect form, slow transition through each step.' },
+                                    { name: 'Reverse Lunges (BW)', reps: '10-12 reps per leg', note: 'Control balance and knee tracking.' },
+                                    { name: 'Hollow Body Hold (BW)', reps: '45-60 seconds', note: 'Lower back pressed into the floor.' }
+                                ]},
+                                { type: 'circuit', name: 'Circuit 2 (3-4 rounds)', exercises: [
+                                    { name: 'Single-Leg Deadlift (BW or 12kg KB)', reps: '8-10 reps per leg', note: 'Maintain straight back, focus on hamstring stretch.' },
+                                    { name: 'Cossack Squats (BW)', reps: '6-8 reps per side', note: 'Deep lateral squat, controlled movement.' },
+                                    { name: 'Side Plank with Hip Dips (BW)', reps: '10-12 reps per side', note: 'Engage obliques, smooth dip.' }
+                                ]},
+                                { type: 'finisher', name: 'Mobility Hold Finisher (2-3 rounds)', exercises: [
+                                    { name: 'Pigeon Stretch (static)', reps: '30 seconds per side', note: 'Deep hip opener.' },
+                                    { name: 'Frog Stretch (static)', reps: '30 seconds', note: 'Inner thigh and hip mobility.' }
+                                ]}
+                            ]
+                        },
+                        {
+                            day: "Day 3",
+                            title: "Power & Conditioning Flow",
+                            focus: "Power & Conditioning",
+                            equipment: "20kg KB, 12kg KB, Bodyweight",
+                            content: [
+                                { type: 'circuit', name: 'Circuit 1 (3-4 rounds)', exercises: [
+                                    { name: 'Kettlebell Swings (20kg)', reps: '15-20 reps', note: 'Max explosiveness with strong hip drive.' },
+                                    { name: 'Jump Squats (BW)', reps: '12-15 reps', note: 'Explode off the ground, land softly.' },
+                                    { name: 'Push-ups (BW)', reps: 'AMRAP', note: 'Maintain perfect form even when fatigued.' }
+                                ]},
+                                { type: 'circuit', name: 'Circuit 2 (3-4 rounds)', exercises: [
+                                    { name: 'Kettlebell Cleans (12kg or 20kg)', reps: '8-10 reps per arm', note: 'Focus on smooth, efficient rack position.' },
+                                    { name: 'Burpees (Full)', reps: '8-10 reps', note: 'Stay powerful through all phases.' },
+                                    { name: 'Mountain Climbers (BW)', reps: '45-60 seconds', note: 'Fast and controlled knee drives.' }
+                                ]},
+                                { type: 'finisher', name: 'Cardio Core Finisher (2-3 rounds)', exercises: [
+                                    { name: 'Plank Jacks (BW)', reps: '20-30 reps', note: 'Maintain plank stability while jumping feet.' },
+                                    { name: 'Bicycle Crunches (BW)', reps: '20-30 reps total', note: 'Elbow to opposite knee, controlled.' }
+                                ]}
+                            ]
+                        },
+                        {
+                            day: "Day 4",
+                            title: "Core Integration & Balance",
+                            focus: "Core & Balance",
+                            equipment: "20kg KB, 12kg KB, Bodyweight",
+                            content: [
+                                { type: 'circuit', name: 'Circuit 1 (3-4 rounds)', exercises: [
+                                    { name: 'Kettlebell Deadlifts (20kg)', reps: '10-12 reps', note: 'Focus on hip hinge, straight back.' },
+                                    { name: 'Bird-Dog (BW)', reps: '10-12 reps per side', note: 'Slow and controlled, minimal torso movement.' },
+                                    { name: 'Suitcase Carry (20kg)', reps: '40-60 meters per side', note: 'Walk tall, resist lateral lean.' }
+                                ]},
+                                { type: 'circuit', name: 'Circuit 2 (3-4 rounds)', exercises: [
+                                    { name: 'Renegade Rows (2x12kg)', reps: '8-10 reps per arm', note: 'Minimize hip rotation, maintain strong plank.' },
+                                    { name: 'V-ups or Tuck-ups (BW)', reps: '10-15 reps', note: 'Engage core to lift upper and lower body.' },
+                                    { name: 'Single-Arm Rack Carry (20kg)', reps: '40-60 meters per side', note: 'Kettlebell in rack position, walk tall.' }
+                                ]},
+                                { type: 'finisher', name: 'Ground Flow Finisher (2-3 rounds)', exercises: [
+                                    { name: 'Spider-Man Push-ups (BW)', reps: '8-10 reps', note: 'Bring knee towards elbow on each push-up.' },
+                                    { name: 'Forearm Plank (BW)', reps: '60 seconds', note: 'Strong, stable hold.' }
+                                ]}
+                            ]
+                        },
+                        {
+                            day: "Day 5",
+                            title: "Skill Refinement & Active Recovery",
+                            focus: "Skill & Recovery",
+                            equipment: "20kg KB, 12kg KB, Bodyweight",
+                            content: [
+                                { type: 'skill', name: 'Skill Session 1 (2-3 rounds, focus on quality)', exercises: [
+                                    { name: 'Turkish Get-Up (12kg)', reps: '2-3 reps per side', note: 'Execute with perfect, deliberate form.' },
+                                    { name: 'Kettlebell Goblet Squat (20kg)', reps: '10-12 reps', note: 'Slow, deep, controlled squats.' },
+                                    { name: 'Dead Hang (or Wall Slide if no bar)', reps: '30-60 seconds', note: 'Decompress spine, improve shoulder mobility.' }
+                                ]},
+                                { type: 'mobility', name: 'Mobility Flow Session 2 (Perform continuously)', exercises: [
+                                    { name: 'Cat-Cow Stretch', reps: '10 reps', note: 'Flow with breath, spine articulation.' },
+                                    { name: 'Thread the Needle', reps: '5 reps per side', note: 'Shoulder and thoracic spine mobility.' },
+                                    { name: 'Dynamic Hip Flexor Stretch', reps: '8 per side', note: 'Kneeling lunge, rock forward and back.' }
+                                ]},
+                                { type: 'mindful', name: 'Mindful Movement Session 3', exercises: [
+                                    { name: 'Bodyweight Flow', reps: '3-5 minutes', note: 'Connect movements: squat, forward fold, plank, downward dog, lunge, repeat.' },
+                                    { name: 'Child\'s Pose', reps: '60 seconds', note: 'Restorative stretch and breath work.' }
+                                ]}
+                            ]
+                        }
                     ]
                 }
             ];
 
+            const programNavContainer = document.getElementById('program-nav');
+            const programDescriptionEl = document.getElementById('program-description');
             const dayNavContainer = document.getElementById('day-nav');
             const workoutDetailsContainer = document.getElementById('workout-details');
             const guidelinesBtn = document.getElementById('guidelines-btn');
             const modal = document.getElementById('guidelines-modal');
             const closeModalBtn = document.getElementById('close-modal-btn');
+            let currentProgramIndex = 0;
             let currentDayIndex = 0;
+            let focusChart = null; 
 
-            const renderWorkout = (dayIndex) => {
+            const wrapLabel = (label, maxLength = 16) => {
+                if (label.length <= maxLength) return label;
+                const words = label.split(' ');
+                let lines = [];
+                let currentLine = '';
+                words.forEach(word => {
+                    if ((currentLine + word).length <= maxLength) {
+                        currentLine += (currentLine === '' ? '' : ' ') + word;
+                    } else {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    }
+                });
+                lines.push(currentLine);
+                return lines;
+            };
+
+            const renderProgramSelector = () => {
+                programNavContainer.innerHTML = '';
+                workoutPrograms.forEach((program, index) => {
+                    const button = document.createElement('button');
+                    button.textContent = program.name;
+                    button.className = `program-btn w-full text-center py-2 px-1 rounded-lg bg-gray-200 hover:bg-[#c89e8d] text-[#2E4756] font-semibold`;
+                    button.addEventListener('click', () => switchProgram(index));
+                    programNavContainer.appendChild(button);
+                });
+                updateProgramButtons();
+            };
+
+            const updateProgramButtons = () => {
+                const buttons = document.querySelectorAll('.program-btn');
+                buttons.forEach((btn, index) => {
+                    if (index === currentProgramIndex) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            };
+
+            const switchProgram = (programIndex) => {
+                currentProgramIndex = programIndex;
+                currentDayIndex = 0; // Reset to Day 1 of the new program
+                programDescriptionEl.textContent = workoutPrograms[currentProgramIndex].description;
+                renderDayNav(workoutPrograms[currentProgramIndex].days);
+                renderWorkout(currentProgramIndex, currentDayIndex);
+                initChart(workoutPrograms[currentProgramIndex].days);
+                updateProgramButtons();
+            };
+
+            const renderDayNav = (days) => {
+                dayNavContainer.innerHTML = '';
+                days.forEach((day, index) => {
+                    const button = document.createElement('button');
+                    button.textContent = day.day;
+                    button.className = 'nav-btn w-full text-center py-2 px-1 rounded-lg bg-gray-200 hover:bg-[#c89e8d] text-[#2E4756] font-semibold';
+                    button.addEventListener('click', () => renderWorkout(currentProgramIndex, index));
+                    dayNavContainer.appendChild(button);
+                });
+            };
+
+            const renderWorkout = (programIndex, dayIndex) => {
                 currentDayIndex = dayIndex;
-                const dayData = workoutData[dayIndex];
+                const programData = workoutPrograms[programIndex];
+                const dayData = programData.days[dayIndex];
                 workoutDetailsContainer.innerHTML = '';
                 
                 const header = document.createElement('div');
@@ -273,10 +477,10 @@
                 });
 
                 workoutDetailsContainer.appendChild(contentWrapper);
-                updateNavButtons();
+                updateDayNavButtons();
             };
             
-            const updateNavButtons = () => {
+            const updateDayNavButtons = () => {
                 const buttons = document.querySelectorAll('.nav-btn');
                 buttons.forEach((btn, index) => {
                     if (index === currentDayIndex) {
@@ -287,59 +491,70 @@
                 });
             };
 
-            workoutData.forEach((day, index) => {
-                const button = document.createElement('button');
-                button.textContent = day.day;
-                button.className = 'nav-btn w-full text-center py-2 px-1 rounded-lg bg-gray-200 hover:bg-[#c89e8d] text-[#2E4756] font-semibold';
-                button.addEventListener('click', () => renderWorkout(index));
-                dayNavContainer.appendChild(button);
-            });
-            
-            const initChart = () => {
+            const initChart = (daysData) => {
                 const ctx = document.getElementById('focusChart').getContext('2d');
-                const focusCounts = workoutData.reduce((acc, day) => {
+                const focusCounts = daysData.reduce((acc, day) => {
                     acc[day.focus] = (acc[day.focus] || 0) + 1;
                     return acc;
                 }, {});
 
-                new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(focusCounts),
-                        datasets: [{
-                            data: Object.values(focusCounts),
-                            backgroundColor: ['#2E4756', '#A45C40', '#6D909F', '#C4A381', '#EAE0D1'],
-                            borderColor: '#F6F5F0',
-                            borderWidth: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    color: '#242121',
-                                    font: { size: 14 }
-                                }
-                            }
+                const chartLabels = Object.keys(focusCounts).map(label => wrapLabel(label));
+                const chartData = Object.values(focusCounts);
+
+                if (focusChart) {
+                    focusChart.data.labels = chartLabels;
+                    focusChart.data.datasets[0].data = chartData;
+                    focusChart.update();
+                } else {
+                    focusChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: chartLabels,
+                            datasets: [{
+                                data: chartData,
+                                backgroundColor: ['#2E4756', '#A45C40', '#6D909F', '#C4A381', '#EAE0D1'],
+                                borderColor: '#F6F5F0',
+                                borderWidth: 4
+                            }]
                         },
-                        cutout: '60%'
-                    }
-                });
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        color: '#242121',
+                                        font: { size: 14 },
+                                        padding: 10,
+                                        boxWidth: 20
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        title: function(context) {
+                                            return context[0].label.replace(/,/g, ' '); // Revert wrapped labels for tooltip
+                                        }
+                                    }
+                                }
+                            },
+                            cutout: '60%'
+                        }
+                    });
+                }
             };
 
-            guidelinesBtn.addEventListener('click', () => modal.classList.remove('hidden'));
-            closeModalBtn.addEventListener('click', () => modal.classList.add('hidden'));
+            guidelinesBtn.addEventListener('click', () => modal.classList.remove('hidden', 'items-center', 'justify-center'));
+            closeModalBtn.addEventListener('click', () => modal.classList.add('hidden', 'items-center', 'justify-center'));
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
-                    modal.classList.add('hidden');
+                    modal.classList.add('hidden', 'items-center', 'justify-center');
                 }
             });
 
-            renderWorkout(0);
-            initChart();
+            // Initial render
+            renderProgramSelector();
+            switchProgram(0); // Load the first program by default
         });
     </script>
 </body>
